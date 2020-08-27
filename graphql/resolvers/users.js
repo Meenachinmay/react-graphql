@@ -4,12 +4,53 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { UserInputError } = require('apollo-server');
 
-const { validateRegisterInput } = require('../../utils/Validators');
+const { validateRegisterInput, validateLoginInput } = require('../../utils/Validators');
 
 const config = require('../../config');
 
+function generateToken (user) {
+    return jwt.sign({
+        _id: user._id,
+        email: user.email,
+        username: user.username
+    }, config.SECRET, { expiresIn: '1h'});
+}
+
 module.exports = {
     Mutation: {
+        async login (_, { username, password }) {
+            const { valid, errors } = validateLoginInput(username, password);
+
+            if (!valid) {
+                throw new UserInputError('Errors' , { errors });
+            }
+            
+            // getting a user from mongodb
+            const user = await User.findOne({ username });
+
+            if (!user) {
+                errors.general = "User not found";
+                throw new UserInputError('User not found', { errors });
+            }
+
+            // password match
+            const match = await bcrypt.compare(password, user.password);
+
+            if (!match) {
+                errors.general = "Wrong credentials.";
+                throw new UserInputError('Wrong credentials.', { errors });
+            }
+
+            // sending a token back
+            const token = generateToken(user);
+
+            return {
+                ...user._doc,
+                id: user._id,
+                token
+            }
+            
+        },
         async register (_, 
                 {
                     registerInput: { username, email, password, confirmPassword }
@@ -54,11 +95,7 @@ module.exports = {
 
             const result = await newUser.save();
 
-            const token = jwt.sign({
-                _id: result._id,
-                email: result.email,
-                username: result.username
-            }, config.SECRET, { expiresIn: '1h'});
+            const token = generateToken(result);
 
             return {
                 ...result._doc,
