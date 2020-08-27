@@ -9,6 +9,9 @@ const resolvers = require("./graphql/resolvers");
 
 
 // creating the server
+// when create an apollo server you need typeDef and Resolvers
+// typedefs basically types related to graphql
+// resolvers are like controllers for adding the mutation logic for get the work done
 const server = new ApolloServer({
     typeDefs: typesDef,
     resolvers: resolvers
